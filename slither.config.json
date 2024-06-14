@@ -1,0 +1,5 @@
+{
+  "detectors_to_exclude": "solc-version,timestamp,unused-return,naming-convention,low-level-calls",
+  "filter_paths": "lib/|dependencies/|test|node_modules/",
+  "solc_remaps": ["@openzeppelin/=node_modules/@openzeppelin/"]
+}
