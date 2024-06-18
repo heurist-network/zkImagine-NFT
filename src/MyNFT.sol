@@ -13,7 +13,7 @@ contract MyNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
 
     string private _baseTokenURI;
 
-    uint256 constant mintFee = 0.0005 ether;
+    uint256 constant mintFee = 0.0006 ether;
 
     // fee for referral
     uint256 constant referralDiscountPct = 10;
@@ -43,7 +43,8 @@ contract MyNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
     event WhitelistedNFTAdded(address nftAddress);
     event WhitelistedNFTRemoved(address nftAddress);
     event FeeClaimed(address owner, uint256 amount);
-    event Minted(address to, uint256 tokenId);
+    event Minted(address to, uint256 tokenId, string modelId);
+    event FreeMinted(address to, address partnerNFTAddress, uint256 tokenId, string modelId);
     event ReferralFeeClaimed(address referer, uint256 amount);
 
     /**
@@ -84,7 +85,6 @@ contract MyNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
      */
     function addWhitelistedNFT(address nftAddress) external onlyOwner {
         if (nftAddress == address(0)) revert ZeroAddressNotAllowed();
-        if (!isERC721(nftAddress)) revert NotAnERC721Contract();
 
         whitelistedNFTs[nftAddress] = true;
         emit WhitelistedNFTAdded(nftAddress);
@@ -104,7 +104,7 @@ contract MyNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
     /**
      * @dev Allows the holder of a partner NFT to mint this NFT for free once per day.
      */
-    function partnerFreeMint(address to, address partnerNFTAddress) external {
+    function partnerFreeMint(address to, address partnerNFTAddress, string memory modelId) external {
         if (!isWhitelistedNFT(partnerNFTAddress)) revert NFTContractNotWhitelisted();
 
         IERC721 partnerNFT = IERC721(partnerNFTAddress);
@@ -115,6 +115,8 @@ contract MyNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
         _safeMint(to, tokenId);
 
         lastMinted[to][partnerNFTAddress] = block.timestamp;
+
+        emit FreeMinted(to, partnerNFTAddress, tokenId, modelId);
     }
 
     /**
@@ -122,27 +124,30 @@ contract MyNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
      * @param to The address that will receive the minted token.
      * @param referral The address of the referral.
      */
-    function mint(address to, address referral) external payable nonReentrant {
+    function mint(address to, address referral, string memory modelId) external payable nonReentrant {
         uint256 requiredMintFee = mintFee;
+
+        // Referral fee is the same as discount. Therefore, if discount rate is 10%,
+        // the protocol earns 80% of the original mint price and the referral earns 10%
 
         if (referral != address(0)) {
             if (referral == to) revert ReferralCannotBeSameAsMinter();
 
-            uint256 discount = mintFee / referralDiscountPct;
+            uint256 discount = (mintFee * referralDiscountPct) / 100;
             requiredMintFee = mintFee - discount;
             uint256 referralFee = discount; // 10% of the reduced mint fee
 
-            if (msg.value < requiredMintFee) revert InsufficientMintFee(requiredMintFee);
+            if (msg.value != requiredMintFee) revert InsufficientMintFee(requiredMintFee);
 
             referralFeesEarned[referral] += referralFee;
             totalReferralFees += referralFee;
         } else {
-            if (msg.value < mintFee) revert InsufficientMintFee(mintFee);
+            if (msg.value != mintFee) revert InsufficientMintFee(mintFee);
         }
 
         uint256 tokenId = totalSupply() + 1;
         _safeMint(to, tokenId);
-        emit Minted(to, tokenId);
+        emit Minted(to, tokenId, modelId);
     }
 
     /**
@@ -158,17 +163,6 @@ contract MyNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
         require(success, "Transfer failed");
 
         emit ReferralFeeClaimed(msg.sender, fee);
-    }
-
-    /**
-     * @dev Checks if an address supports the ERC721 interface.
-     */
-    function isERC721(address addr) internal returns (bool) {
-        bytes4 ERC721InterfaceId = 0x80ac58cd;
-        (bool success, bytes memory data) = addr.call(
-            abi.encodeWithSignature("supportsInterface(bytes4)", ERC721InterfaceId)
-        );
-        return (success && data.length > 0 && abi.decode(data, (bool)));
     }
 
     /**
