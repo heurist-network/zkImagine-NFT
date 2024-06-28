@@ -49,10 +49,10 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
     event WhitelistedNFTAdded(address nftAddress);
     event WhitelistedNFTRemoved(address nftAddress);
     event FeeClaimed(address owner, uint256 amount);
-    event Minted(address to, uint256 tokenId, string modelId);
-    event FreeMinted(address to, address partnerNFTAddress, uint256 tokenId, string modelId);
+    event Minted(address to, uint256 tokenId, string modelId, string imageId);
+    event PartnerFreeMint(address to, address partnerNFTAddress, uint256 tokenId, string modelId,string imageId);
     event ReferralFeeClaimed(address referer, uint256 amount);
-    event SignatureFreeMint(address to, uint256 tokenId);
+    event SignatureFreeMint(address to, uint256 tokenId,string modelId, string imageId);
 
     /**
      * @dev Initializes the contract by setting a `name`, `symbol` and `baseTokenURI` to the token collection.
@@ -111,7 +111,12 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
     /**
      * @dev Allows the holder of a partner NFT to mint this NFT for free once per day.
      */
-    function partnerFreeMint(address to, address partnerNFTAddress, string memory modelId) external {
+    function partnerFreeMint(
+        address to,
+        address partnerNFTAddress,
+        string memory modelId,
+        string memory imageId
+    ) external {
         if (!isWhitelistedNFT(partnerNFTAddress)) revert NFTContractNotWhitelisted();
 
         IERC721 partnerNFT = IERC721(partnerNFTAddress);
@@ -123,7 +128,7 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
 
         lastMinted[to][partnerNFTAddress] = block.timestamp;
 
-        emit FreeMinted(to, partnerNFTAddress, tokenId, modelId);
+        emit PartnerFreeMint(to, partnerNFTAddress, tokenId, modelId, imageId);
     }
 
     /**
@@ -131,7 +136,12 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
      * @param to The address that will receive the minted token.
      * @param referral The address of the referral.
      */
-    function mint(address to, address referral, string memory modelId) external payable nonReentrant {
+    function mint(
+        address to,
+        address referral,
+        string memory modelId,
+        string memory imageId
+    ) external payable nonReentrant {
         uint256 requiredMintFee = mintFee;
 
         // Referral fee is the same as discount. Therefore, if discount rate is 10%,
@@ -140,7 +150,7 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
         if (referral != address(0)) {
             if (referral == to) revert ReferralCannotBeSameAsMinter();
 
-            uint256 discount = (mintFee * referralDiscountPct) / 100; // 10% discount -> 0.0006 * 10 / 100 = 0.00006 
+            uint256 discount = (mintFee * referralDiscountPct) / 100; // 10% discount -> 0.0006 * 10 / 100 = 0.00006
             requiredMintFee = mintFee - discount; // = 0.00054
             uint256 referralFee = discount; // 10% of the reduced mint fee
 
@@ -154,13 +164,18 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
 
         uint256 tokenId = totalSupply() + 1;
         _safeMint(to, tokenId);
-        emit Minted(to, tokenId, modelId);
+        emit Minted(to, tokenId, modelId, imageId);
     }
-    
+
     /**
      * @dev Allows the owner to mint a token for free using a signature.
      */
-    function signatureFreeMint(bytes32 hash, bytes memory signature) external {
+    function signatureFreeMint(
+        bytes32 hash,
+        bytes memory signature,
+        string memory modelId,
+        string memory imageId
+    ) external {
         if (hash != keccak256(abi.encodePacked(msg.sender))) revert InvalidHash();
         if (_recoverSigner(hash, signature) == owner()) revert InvalidSignature();
         if (block.timestamp <= lastSignatureUsed[signature] + 1 days) revert AlreadyMintedToday();
@@ -170,7 +185,7 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
         uint256 tokenId = totalSupply() + 1;
         _safeMint(msg.sender, tokenId);
 
-        emit SignatureFreeMint(msg.sender, tokenId);
+        emit SignatureFreeMint(msg.sender, tokenId, modelId, imageId);
     }
 
     /**
