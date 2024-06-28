@@ -4,11 +4,12 @@ pragma solidity 0.8.20;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /**
- * @title MyNFT
+ * @title ZkImagine
  */
-contract MyNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
+contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
     using Strings for uint256;
 
     string private _baseTokenURI;
@@ -23,6 +24,9 @@ contract MyNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
 
     // last minted timestamp for each holder of partner NFT
     mapping(address => mapping(address => uint256)) public lastMinted;
+
+    // last minted timestamp for each signature
+    mapping(bytes => uint256) public lastSignatureUsed;
 
     // Tracks the fees earned by referrals for users
     mapping(address => uint256) public referralFeesEarned;
@@ -39,6 +43,8 @@ contract MyNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
     error ReferralCannotBeSameAsMinter();
     error InsufficientMintFee(uint256 required);
     error NoReferralFeeEarned();
+    error InvalidHash();
+    error InvalidSignature();
 
     event WhitelistedNFTAdded(address nftAddress);
     event WhitelistedNFTRemoved(address nftAddress);
@@ -46,6 +52,7 @@ contract MyNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
     event Minted(address to, uint256 tokenId, string modelId);
     event FreeMinted(address to, address partnerNFTAddress, uint256 tokenId, string modelId);
     event ReferralFeeClaimed(address referer, uint256 amount);
+    event SignatureFreeMint(address to, uint256 tokenId);
 
     /**
      * @dev Initializes the contract by setting a `name`, `symbol` and `baseTokenURI` to the token collection.
@@ -133,8 +140,8 @@ contract MyNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
         if (referral != address(0)) {
             if (referral == to) revert ReferralCannotBeSameAsMinter();
 
-            uint256 discount = (mintFee * referralDiscountPct) / 100;
-            requiredMintFee = mintFee - discount;
+            uint256 discount = (mintFee * referralDiscountPct) / 100; // 10% discount -> 0.0006 * 10 / 100 = 0.00006 
+            requiredMintFee = mintFee - discount; // = 0.00054
             uint256 referralFee = discount; // 10% of the reduced mint fee
 
             if (msg.value != requiredMintFee) revert InsufficientMintFee(requiredMintFee);
@@ -148,6 +155,22 @@ contract MyNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
         uint256 tokenId = totalSupply() + 1;
         _safeMint(to, tokenId);
         emit Minted(to, tokenId, modelId);
+    }
+    
+    /**
+     * @dev Allows the owner to mint a token for free using a signature.
+     */
+    function signatureFreeMint(bytes32 hash, bytes memory signature) external {
+        if (hash != keccak256(abi.encodePacked(msg.sender))) revert InvalidHash();
+        if (_recoverSigner(hash, signature) == owner()) revert InvalidSignature();
+        if (block.timestamp <= lastSignatureUsed[signature] + 1 days) revert AlreadyMintedToday();
+
+        lastSignatureUsed[signature] = block.timestamp;
+
+        uint256 tokenId = totalSupply() + 1;
+        _safeMint(msg.sender, tokenId);
+
+        emit SignatureFreeMint(msg.sender, tokenId);
     }
 
     /**
@@ -182,6 +205,11 @@ contract MyNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
         (bool success, ) = msg.sender.call{ value: availableBalance }("");
         require(success, "Transfer failed");
         emit FeeClaimed(owner(), availableBalance);
+    }
+
+    function _recoverSigner(bytes32 hash, bytes memory signature) internal pure returns (address) {
+        bytes32 messageDigest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
+        return ECDSA.recover(messageDigest, signature);
     }
 
     /**

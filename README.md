@@ -1,5 +1,10 @@
 # zkImagine-NFT Smart Contract
 
+## Deployed on zkSync testnet 
+always run `bun run clean` and `bun run compile` before deploying
+
+`npx hardhat deploy-zksync --script nft/deployZkSamurist.ts --network zkSyncSepoliaTestnet`
+
 ## Overview
 zkImagine-NFT is an ERC721-based non-fungible token (NFT) smart contract designed for deployment on the ZKsync layer 2 scaling solution for Ethereum. This contract includes features such as referral-based minting discounts, partner NFT whitelisting, and secure fee handling.
 
