@@ -34,25 +34,13 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
     // Total referral fees that need to be kept in the contract
     uint256 public totalReferralFees;
 
-    // Custom Errors
-    error ZeroAddressNotAllowed();
-    error NotAnERC721Contract();
-    error NFTContractNotWhitelisted();
-    error RecipientDoesNotOwnTheNFT();
-    error AlreadyMintedToday();
-    error ReferralCannotBeSameAsMinter();
-    error InsufficientMintFee(uint256 required);
-    error NoReferralFeeEarned();
-    error InvalidHash();
-    error InvalidSignature();
-
     event WhitelistedNFTAdded(address nftAddress);
     event WhitelistedNFTRemoved(address nftAddress);
     event FeeClaimed(address owner, uint256 amount);
     event Minted(address to, uint256 tokenId, string modelId, string imageId);
-    event PartnerFreeMint(address to, address partnerNFTAddress, uint256 tokenId, string modelId,string imageId);
+    event PartnerFreeMint(address to, address partnerNFTAddress, uint256 tokenId, string modelId, string imageId);
     event ReferralFeeClaimed(address referer, uint256 amount);
-    event SignatureFreeMint(address to, uint256 tokenId,string modelId, string imageId);
+    event SignatureFreeMint(address to, uint256 tokenId, string modelId, string imageId);
 
     /**
      * @dev Initializes the contract by setting a `name`, `symbol` and `baseTokenURI` to the token collection.
@@ -91,7 +79,7 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
      * Only the owner can call this function.
      */
     function addWhitelistedNFT(address nftAddress) external onlyOwner {
-        if (nftAddress == address(0)) revert ZeroAddressNotAllowed();
+        require(nftAddress != address(0), "Zero address not allowed");
 
         whitelistedNFTs[nftAddress] = true;
         emit WhitelistedNFTAdded(nftAddress);
@@ -102,7 +90,7 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
      * Only the owner can call this function.
      */
     function removeWhitelistedNFT(address nftAddress) external onlyOwner {
-        if (nftAddress == address(0)) revert ZeroAddressNotAllowed();
+        require(nftAddress != address(0), "Zero address not allowed");
 
         whitelistedNFTs[nftAddress] = false;
         emit WhitelistedNFTRemoved(nftAddress);
@@ -117,11 +105,16 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
         string memory modelId,
         string memory imageId
     ) external {
-        if (!isWhitelistedNFT(partnerNFTAddress)) revert NFTContractNotWhitelisted();
-
+        require(isWhitelistedNFT(partnerNFTAddress), "NFT contract not whitelisted");
         IERC721 partnerNFT = IERC721(partnerNFTAddress);
-        if (partnerNFT.balanceOf(to) == 0) revert RecipientDoesNotOwnTheNFT();
-        if (block.timestamp <= lastMinted[to][partnerNFTAddress] + 1 days) revert AlreadyMintedToday();
+        require(partnerNFT.balanceOf(to) > 0, "Recipient does not own the NFT");
+
+
+        require(
+            lastMinted[to][partnerNFTAddress] == 0 || block.timestamp > (lastMinted[to][partnerNFTAddress] + 1 days),
+            "Already minted today"
+        );
+
 
         uint256 tokenId = totalSupply() + 1;
         _safeMint(to, tokenId);
@@ -148,18 +141,18 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
         // the protocol earns 80% of the original mint price and the referral earns 10%
 
         if (referral != address(0)) {
-            if (referral == to) revert ReferralCannotBeSameAsMinter();
+            require(referral != to, "Referral cannot be same as minter");
 
             uint256 discount = (mintFee * referralDiscountPct) / 100; // 10% discount -> 0.0006 * 10 / 100 = 0.00006
             requiredMintFee = mintFee - discount; // = 0.00054
             uint256 referralFee = discount; // 10% of the reduced mint fee
 
-            if (msg.value != requiredMintFee) revert InsufficientMintFee(requiredMintFee);
+            require(msg.value == requiredMintFee, "Insufficient mint fee");
 
             referralFeesEarned[referral] += referralFee;
             totalReferralFees += referralFee;
         } else {
-            if (msg.value != mintFee) revert InsufficientMintFee(mintFee);
+            require(msg.value == mintFee, "Insufficient mint fee");
         }
 
         uint256 tokenId = totalSupply() + 1;
@@ -176,9 +169,9 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
         string memory modelId,
         string memory imageId
     ) external {
-        if (hash != keccak256(abi.encodePacked(msg.sender))) revert InvalidHash();
-        if (_recoverSigner(hash, signature) == owner()) revert InvalidSignature();
-        if (block.timestamp <= lastSignatureUsed[signature] + 1 days) revert AlreadyMintedToday();
+        require(hash == keccak256(abi.encodePacked(msg.sender)), "Invalid hash");
+        require(_recoverSigner(hash, signature) == owner(), "Invalid signature");
+        require(lastSignatureUsed[signature] == 0 || block.timestamp > lastSignatureUsed[signature] + 1 days, "Already minted today");
 
         lastSignatureUsed[signature] = block.timestamp;
 
@@ -193,7 +186,7 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
      */
     function claimReferralFee() external {
         uint256 fee = referralFeesEarned[msg.sender];
-        if (fee == 0) revert NoReferralFeeEarned();
+        require(fee > 0, "No referral fee earned");
 
         referralFeesEarned[msg.sender] = 0;
         totalReferralFees -= fee;

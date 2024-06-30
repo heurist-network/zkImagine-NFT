@@ -21,29 +21,16 @@ export const getProvider = () => {
 }
 
 export const getWallet = (privateKey?: string) => {
-  // const chainId = process.env.CHAIN_ID;
-  const chainId = hre.network.config.ethNetwork;
-  console.log("chainId", chainId);
-  dotenv.config({ path: `.env.${chainId}` });
-
   if (!privateKey) {
     // Get wallet private key from .env file
-    if (!process.env.WALLET_PRIVATE_KEY && !process.env[`${chainId}_WALLET_PRIVATE_KEY`]
-    ) throw "⛔️ Wallet private key wasn't found in .env file!";
+    if (!process.env.WALLET_PRIVATE_KEY) throw "⛔️ Wallet private key wasn't found in .env file!";
   }
-  console.log("[`${chainId}_WALLET_PRIVATE_KEY`]", process.env[`${chainId}_WALLET_PRIVATE_KEY`]);
-  const provider = getProvider();
-  let wallet;
-  // Initialize zkSync Wallet
-  // if (chainId == "localhost") {
-  //   wallet =  new Wallet(privateKey ?? process.env.`${chainId}`.WALLET_PRIVATE_KEY!,provider);
-  // }
-  // else {
-  //   wallet = new Wallet(privateKey ?? process.env.WALLET_PRIVATE_KEY!, provider);
 
-  // }
-  wallet = new Wallet(privateKey?? process.env[`${chainId}_WALLET_PRIVATE_KEY`]!, provider);
-  console.log("wallet", wallet.address)
+  const provider = getProvider();
+  
+  // Initialize zkSync Wallet
+  const wallet = new Wallet(privateKey ?? process.env.WALLET_PRIVATE_KEY!, provider);
+
   return wallet;
 }
 

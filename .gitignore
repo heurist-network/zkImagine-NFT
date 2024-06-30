@@ -111,3 +111,6 @@ dist
 
 # TernJS port file
 .tern-port
+
+.zksolc-libraries-cache/
+typechain-types/
