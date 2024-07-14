@@ -14,10 +14,16 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
 
     string private _baseTokenURI;
 
-    uint256 constant mintFee = 0.0006 ether;
+    uint256 public mintFee;
 
     // fee for referral
-    uint256 constant referralDiscountPct = 10;
+    uint256 public referralDiscountPct;
+
+    // free mint cooldown window
+    uint256 public freeMintCooldownWindow;
+
+    // Counter for Token IDs
+    uint256 private _tokenIdCounter; // New counter for Token IDs
 
     // mapping for whitelisted NFT contract addresses
     mapping(address => bool) public whitelistedNFTs;
@@ -34,19 +40,37 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
     // Total referral fees that need to be kept in the contract
     uint256 public totalReferralFees;
 
+    struct MintStatus {
+        bool canMint;
+        string reason;
+    }
+
     event WhitelistedNFTAdded(address nftAddress);
     event WhitelistedNFTRemoved(address nftAddress);
     event FeeClaimed(address owner, uint256 amount);
-    event Minted(address to, uint256 tokenId, string modelId, string imageId);
+    event Minted(address to, address referral, uint256 tokenId, string modelId, string imageId);
     event PartnerFreeMint(address to, address partnerNFTAddress, uint256 tokenId, string modelId, string imageId);
     event ReferralFeeClaimed(address referer, uint256 amount);
     event SignatureFreeMint(address to, uint256 tokenId, string modelId, string imageId);
+    event MintFeeChanged(uint256 fee);
+    event ReferralDiscountChanged(uint256 discount);
+    event FreeMintCooldownWindowChanged(uint256 cooldownWindow);
 
     /**
      * @dev Initializes the contract by setting a `name`, `symbol` and `baseTokenURI` to the token collection.
      */
-    constructor(string memory name, string memory symbol, string memory baseTokenURI) ERC721(name, symbol) {
+    constructor(
+        string memory name,
+        string memory symbol,
+        string memory baseTokenURI,
+        uint256 mint_fee,
+        uint256 referralDiscount,
+        uint256 cooldownWindow
+    ) ERC721(name, symbol) {
         _baseTokenURI = baseTokenURI;
+        mintFee = mint_fee;
+        referralDiscountPct = referralDiscount;
+        freeMintCooldownWindow = cooldownWindow;
     }
 
     /**
@@ -105,19 +129,12 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
         string memory modelId,
         string memory imageId
     ) external {
-        require(isWhitelistedNFT(partnerNFTAddress), "NFT contract not whitelisted");
-        IERC721 partnerNFT = IERC721(partnerNFTAddress);
-        require(partnerNFT.balanceOf(to) > 0, "Recipient does not own the NFT");
+        MintStatus memory status = canMintForPartnerNFT(to, partnerNFTAddress);
+        require(status.canMint, status.reason);
 
-
-        require(
-            lastMinted[to][partnerNFTAddress] == 0 || block.timestamp > (lastMinted[to][partnerNFTAddress] + 1 days),
-            "Already minted today"
-        );
-
-
-        uint256 tokenId = totalSupply() + 1;
+        uint256 tokenId = _getNextTokenId();
         _safeMint(to, tokenId);
+        _incrementTokenId();
 
         lastMinted[to][partnerNFTAddress] = block.timestamp;
 
@@ -155,9 +172,10 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
             require(msg.value == mintFee, "Insufficient mint fee");
         }
 
-        uint256 tokenId = totalSupply() + 1;
+        uint256 tokenId = _getNextTokenId();
         _safeMint(to, tokenId);
-        emit Minted(to, tokenId, modelId, imageId);
+        _incrementTokenId();
+        emit Minted(to, referral, tokenId, modelId, imageId);
     }
 
     /**
@@ -169,14 +187,16 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
         string memory modelId,
         string memory imageId
     ) external {
-        require(hash == keccak256(abi.encodePacked(msg.sender)), "Invalid hash");
-        require(_recoverSigner(hash, signature) == owner(), "Invalid signature");
-        require(lastSignatureUsed[signature] == 0 || block.timestamp > lastSignatureUsed[signature] + 1 days, "Already minted today");
+        // require(canMintForSignature(hash, signature), "Already minted today");
+        MintStatus memory status = canMintForSignature(hash, signature);
+        require(status.canMint, status.reason);
 
         lastSignatureUsed[signature] = block.timestamp;
 
-        uint256 tokenId = totalSupply() + 1;
+        // uint256 tokenId = totalSupply() + 1;
+        uint256 tokenId = _getNextTokenId();
         _safeMint(msg.sender, tokenId);
+        _incrementTokenId();
 
         emit SignatureFreeMint(msg.sender, tokenId, modelId, imageId);
     }
@@ -220,10 +240,70 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
         return ECDSA.recover(messageDigest, signature);
     }
 
+    // check if address can mint for partner NFT
+    function canMintForPartnerNFT(address to, address partnerNFTAddress) public view returns (MintStatus memory) {
+        if (!isWhitelistedNFT(partnerNFTAddress)) {
+            return MintStatus(false, "NFT contract not whitelisted");
+        }
+
+        IERC721 partnerNFT = IERC721(partnerNFTAddress);
+        if (partnerNFT.balanceOf(to) == 0) {
+            return MintStatus(false, "Recipient does not own the NFT");
+        }
+
+        if (lastMinted[to][partnerNFTAddress] != 0 && block.timestamp <= (lastMinted[to][partnerNFTAddress] + freeMintCooldownWindow)) {
+            return MintStatus(false, "Minting cooldown period not finished");
+        }
+
+        return MintStatus(true, "");
+    }
+
+    // check if address can mint for signature
+    function canMintForSignature(bytes32 hash, bytes memory signature) public view returns (MintStatus memory) {
+        if (hash != keccak256(abi.encodePacked(msg.sender))) {
+            return MintStatus(false, "Invalid hash");
+        }
+
+        if (_recoverSigner(hash, signature) != owner()) {
+            return MintStatus(false, "Invalid signature");
+        }
+
+        if (lastSignatureUsed[signature] != 0 && block.timestamp <= lastSignatureUsed[signature] + freeMintCooldownWindow) {
+            return MintStatus(false, "Already minted today");
+        }
+
+        return MintStatus(true, "");
+    }
+
     /**
      * @dev Allows the contract to receive Ether.
      */
     receive() external payable {}
 
     // Additional functions or overrides can be added here if needed.
+    function setMintFee(uint256 fee) external onlyOwner {
+        require(fee > 0, "Fee must be greater than 0");
+        mintFee = fee;
+        emit MintFeeChanged(fee);
+    }
+
+    function setReferralDiscountPct(uint256 discount) external onlyOwner {
+        require(discount >= 0 && discount <= 100, "must between 0 and 100");
+        referralDiscountPct = discount;
+        emit ReferralDiscountChanged(discount);
+    }
+
+    function setFreeMintCooldownWindow (uint256 cooldownWindow) external onlyOwner {
+        require(cooldownWindow > 0, "Cooldown window must be greater than 0");
+        freeMintCooldownWindow = cooldownWindow;
+        emit FreeMintCooldownWindowChanged(cooldownWindow);
+    }
+
+    function _getNextTokenId() private view returns (uint256) {
+        return _tokenIdCounter + 1;
+    }
+
+    function _incrementTokenId() private {
+        _tokenIdCounter++;
+    }
 }

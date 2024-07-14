@@ -82,5 +82,7 @@ ZkImagine is an ERC721-based non-fungible token (NFT) smart contract designed fo
 ## Deployment
 - **Network**: Designed for deployment on the zkSync network
 
+- **Deployment Script**: `deployZkImagine.ts` on testnet 
+`npx hardhat deploy-zksync --script deployZkImagine.ts --network zkSyncSepoliaTestnet`
 ## License
 This project is licensed under the MIT License.
