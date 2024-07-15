@@ -6,6 +6,24 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
+/*
+
+██╗░░██╗███████╗██╗░░░██╗██████╗░██╗░██████╗████████╗
+██║░░██║██╔════╝██║░░░██║██╔══██╗██║██╔════╝╚══██╔══╝
+███████║█████╗░░██║░░░██║██████╔╝██║╚█████╗░░░░██║░░░
+██╔══██║██╔══╝░░██║░░░██║██╔══██╗██║░╚═══██╗░░░██║░░░
+██║░░██║███████╗╚██████╔╝██║░░██║██║██████╔╝░░░██║░░░
+╚═╝░░╚═╝╚══════╝░╚═════╝░╚═╝░░╚═╝╚═╝╚═════╝░░░░╚═╝░░░
+
+███████╗██╗░░██╗██╗███╗░░░███╗░█████╗░░██████╗░██╗███╗░░██╗███████╗
+╚════██║██║░██╔╝██║████╗░████║██╔══██╗██╔════╝░██║████╗░██║██╔════╝
+░░███╔═╝█████═╝░██║██╔████╔██║███████║██║░░██╗░██║██╔██╗██║█████╗░░
+██╔══╝░░██╔═██╗░██║██║╚██╔╝██║██╔══██║██║░░╚██╗██║██║╚████║██╔══╝░░
+███████╗██║░╚██╗██║██║░╚═╝░██║██║░░██║╚██████╔╝██║██║░╚███║███████╗
+╚══════╝╚═╝░░╚═╝╚═╝╚═╝░░░░░╚═╝╚═╝░░╚═╝░╚═════╝░╚═╝╚═╝░░╚══╝╚══════╝
+
+*/
+
 /**
  * @title ZkImagine
  */
@@ -157,19 +175,17 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
         // Referral fee is the same as discount. Therefore, if discount rate is 10%,
         // the protocol earns 80% of the original mint price and the referral earns 10%
 
-        if (referral != address(0)) {
-            require(referral != to, "Referral cannot be same as minter");
-
-            uint256 discount = (mintFee * referralDiscountPct) / 100; // 10% discount -> 0.0006 * 10 / 100 = 0.00006
-            requiredMintFee = mintFee - discount; // = 0.00054
-            uint256 referralFee = discount; // 10% of the reduced mint fee
+        if (referral == address(0) || referral == to) {
+            require(msg.value == mintFee, "Insufficient mint fee");
+        } else {
+            uint256 discount;
+            (requiredMintFee, discount) = getDiscountedMintFee();
+            uint256 referralFee = discount ; // 10% of the reduced mint fee
 
             require(msg.value == requiredMintFee, "Insufficient mint fee");
 
             referralFeesEarned[referral] += referralFee;
             totalReferralFees += referralFee;
-        } else {
-            require(msg.value == mintFee, "Insufficient mint fee");
         }
 
         uint256 tokenId = _getNextTokenId();
@@ -251,7 +267,10 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
             return MintStatus(false, "Recipient does not own the NFT");
         }
 
-        if (lastMinted[to][partnerNFTAddress] != 0 && block.timestamp <= (lastMinted[to][partnerNFTAddress] + freeMintCooldownWindow)) {
+        if (
+            lastMinted[to][partnerNFTAddress] != 0 &&
+            block.timestamp <= (lastMinted[to][partnerNFTAddress] + freeMintCooldownWindow)
+        ) {
             return MintStatus(false, "Minting cooldown period not finished");
         }
 
@@ -268,7 +287,10 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
             return MintStatus(false, "Invalid signature");
         }
 
-        if (lastSignatureUsed[signature] != 0 && block.timestamp <= lastSignatureUsed[signature] + freeMintCooldownWindow) {
+        if (
+            lastSignatureUsed[signature] != 0 &&
+            block.timestamp <= lastSignatureUsed[signature] + freeMintCooldownWindow
+        ) {
             return MintStatus(false, "Already minted today");
         }
 
@@ -293,10 +315,15 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
         emit ReferralDiscountChanged(discount);
     }
 
-    function setFreeMintCooldownWindow (uint256 cooldownWindow) external onlyOwner {
+    function setFreeMintCooldownWindow(uint256 cooldownWindow) external onlyOwner {
         require(cooldownWindow > 0, "Cooldown window must be greater than 0");
         freeMintCooldownWindow = cooldownWindow;
         emit FreeMintCooldownWindowChanged(cooldownWindow);
+    }
+
+    function getDiscountedMintFee() public view returns (uint256, uint256) {
+        uint256 discount = (mintFee * referralDiscountPct) / 100; // 10% discount -> 0.0006 * 10 / 100 = 0.00006
+        return (mintFee - discount, discount);
     }
 
     function _getNextTokenId() private view returns (uint256) {

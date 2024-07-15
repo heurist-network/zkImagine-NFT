@@ -12,6 +12,7 @@ function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// npx hardhat run scripts/mintTransaction.ts --network zkSyncSepoliaTestnet   
 async function main() {
     const contractABI = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
 
@@ -30,7 +31,7 @@ async function main() {
     console.log("deployer", deployerWallet.address);
     // Create 10 wallets
     const wallets = [];
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 10; i++) {
         let wallet = ethers.Wallet.createRandom().connect(ethers.provider);
         console.log(`Created wallet ${i + 1}:`, wallet.address);
         wallets.push(wallet);
@@ -48,7 +49,7 @@ async function main() {
 
         // Increment the nonce for the next transaction
         nonce++;
-        console.log(`Transferred 0.00015 ETH to wallet ${i + 1}:`, wallet.address);
+        console.log(`Transferred ETH to wallet ${i + 1}:`, wallet.address);
     }
 
     // Call the setValue function with each wallet
