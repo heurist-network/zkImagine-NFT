@@ -11,6 +11,8 @@ export default async function () {
   console.log("Deploying ZkImagine NFT contract with mint fee of", mintFee.toString());
   const referralDiscount = 10;
   // time window for cooldown
-  const cooldownWindow = 30; // 30  sec for test, would be 1 day in prod
-  await deployContract("ZkImagine", [name, symbol, baseTokenURI, mintFee.toString(), referralDiscount.toString(),cooldownWindow.toString()]);
+  const cooldownWindow = 60; // 60  sec for test, would be 1 day in prod
+  // current timestamp as input 
+  const timestamp = Math.floor(Date.now() / 1000);
+  await deployContract("ZkImagine", [name, symbol, baseTokenURI, mintFee.toString(), referralDiscount.toString(), cooldownWindow.toString(), timestamp.toString()]);
 }

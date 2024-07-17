@@ -47,16 +47,18 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
     mapping(address => bool) public whitelistedNFTs;
 
     // last minted timestamp for each holder of partner NFT
-    mapping(address => mapping(address => uint256)) public lastMinted;
+    mapping(address => mapping(address => uint256)) public nextMint;
 
     // last minted timestamp for each signature
-    mapping(bytes => uint256) public lastSignatureUsed;
+    mapping(bytes => uint256) public nextSignatureMint;
 
     // Tracks the fees earned by referrals for users
     mapping(address => uint256) public referralFeesEarned;
 
     // Total referral fees that need to be kept in the contract
     uint256 public totalReferralFees;
+
+    uint256 public globalTimeThreshold;
 
     struct MintStatus {
         bool canMint;
@@ -83,12 +85,14 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
         string memory baseTokenURI,
         uint256 mint_fee,
         uint256 referralDiscount,
-        uint256 cooldownWindow
+        uint256 cooldownWindow,
+        uint256 startTimestamp
     ) ERC721(name, symbol) {
         _baseTokenURI = baseTokenURI;
         mintFee = mint_fee;
         referralDiscountPct = referralDiscount;
         freeMintCooldownWindow = cooldownWindow;
+        globalTimeThreshold = startTimestamp + cooldownWindow;
     }
 
     /**
@@ -150,11 +154,12 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
         MintStatus memory status = canMintForPartnerNFT(to, partnerNFTAddress);
         require(status.canMint, status.reason);
 
+        _updateGlobalTimeThreshold();
+        nextMint[to][partnerNFTAddress] = globalTimeThreshold;
+
         uint256 tokenId = _getNextTokenId();
         _safeMint(to, tokenId);
         _incrementTokenId();
-
-        lastMinted[to][partnerNFTAddress] = block.timestamp;
 
         emit PartnerFreeMint(to, partnerNFTAddress, tokenId, modelId, imageId);
     }
@@ -180,7 +185,7 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
         } else {
             uint256 discount;
             (requiredMintFee, discount) = getDiscountedMintFee();
-            uint256 referralFee = discount ; // 10% of the reduced mint fee
+            uint256 referralFee = discount; // 10% of the reduced mint fee
 
             require(msg.value == requiredMintFee, "Insufficient mint fee");
 
@@ -207,7 +212,9 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
         MintStatus memory status = canMintForSignature(hash, signature);
         require(status.canMint, status.reason);
 
-        lastSignatureUsed[signature] = block.timestamp;
+        _updateGlobalTimeThreshold();
+
+        nextSignatureMint[signature] = globalTimeThreshold;
 
         // uint256 tokenId = totalSupply() + 1;
         uint256 tokenId = _getNextTokenId();
@@ -267,11 +274,8 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
             return MintStatus(false, "Recipient does not own the NFT");
         }
 
-        if (
-            lastMinted[to][partnerNFTAddress] != 0 &&
-            block.timestamp <= (lastMinted[to][partnerNFTAddress] + freeMintCooldownWindow)
-        ) {
-            return MintStatus(false, "Minting cooldown period not finished");
+        if (!checkValidTime(nextMint[to][partnerNFTAddress])) {
+            return MintStatus(false, "Next mint time not reached");
         }
 
         return MintStatus(true, "");
@@ -287,14 +291,31 @@ contract ZkImagine is ERC721Enumerable, Ownable, ReentrancyGuard {
             return MintStatus(false, "Invalid signature");
         }
 
-        if (
-            lastSignatureUsed[signature] != 0 &&
-            block.timestamp <= lastSignatureUsed[signature] + freeMintCooldownWindow
-        ) {
-            return MintStatus(false, "Already minted today");
+        if (!checkValidTime(nextSignatureMint[signature])) {
+            return MintStatus(false, "Next signature mint time not reached");
         }
 
         return MintStatus(true, "");
+    }
+
+    function checkValidTime(uint256 userNextTimestamp) internal view returns (bool) {
+        // triggered by user free mint
+
+        if (block.timestamp > userNextTimestamp) {
+            return true;
+        }
+
+        return false;
+    }
+
+    function _updateGlobalTimeThreshold() internal {
+        // triggered by user free mint
+        if (block.timestamp > globalTimeThreshold) {
+            // update the globalTimeThreshold with multiple of freeMintCooldownWindow until it is greater than block.timestamp
+            while (block.timestamp > globalTimeThreshold) {
+                globalTimeThreshold += freeMintCooldownWindow;
+            }
+        }
     }
 
     /**
