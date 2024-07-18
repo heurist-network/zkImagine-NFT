@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-// import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-// import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 /*
 
@@ -42,11 +40,12 @@ contract ZkImagine is
 {
     using Strings for uint256;
 
+    /// STORAGE ///
     string private _baseTokenURI;
 
     uint256 public mintFee;
 
-    // fee for referral
+    // fee discount for referral mint
     uint256 public referralDiscountPct;
 
     // free mint cooldown window
@@ -58,10 +57,10 @@ contract ZkImagine is
     // mapping for whitelisted NFT contract addresses
     mapping(address => bool) public whitelistedNFTs;
 
-    // last minted timestamp for each holder of partner NFT
+    // next minted timestamp for each holder of partner NFT
     mapping(address => mapping(address => uint256)) public nextMint;
 
-    // last minted timestamp for each signature
+    // next minted timestamp for each signature
     mapping(bytes => uint256) public nextSignatureMint;
 
     // Tracks the fees earned by referrals for users
@@ -70,13 +69,16 @@ contract ZkImagine is
     // Total referral fees that need to be kept in the contract
     uint256 public totalReferralFees;
 
+    // global time threshold for free mint
     uint256 public globalTimeThreshold;
 
+    /// STRUCT ///
     struct MintStatus {
         bool canMint;
         string reason;
     }
 
+    /// EVENT ///
     event WhitelistedNFTAdded(address nftAddress);
     event WhitelistedNFTRemoved(address nftAddress);
     event FeeClaimed(address owner, uint256 amount);
@@ -88,30 +90,15 @@ contract ZkImagine is
     event ReferralDiscountChanged(uint256 discount);
     event FreeMintCooldownWindowChanged(uint256 cooldownWindow);
 
-    /**
-     * @dev Initializes the contract by setting a `name`, `symbol` and `baseTokenURI` to the token collection.
-     */
-    // constructor(
-    //     string memory name,
-    //     string memory symbol,
-    //     string memory baseTokenURI,
-    //     uint256 mint_fee,
-    //     uint256 referralDiscount,
-    //     uint256 cooldownWindow,
-    //     uint256 startTimestamp
-    // ) ERC721(name, symbol) {
-    //     _baseTokenURI = baseTokenURI;
-    //     mintFee = mint_fee;
-    //     referralDiscountPct = referralDiscount;
-    //     freeMintCooldownWindow = cooldownWindow;
-    //     globalTimeThreshold = startTimestamp + cooldownWindow;
-    // }
-
-    
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
+
+    /**
+     * @dev Initialize functions for upgradeable contract.
+     */
+
     function initialize(
         string memory name,
         string memory symbol,
@@ -133,6 +120,7 @@ contract ZkImagine is
         globalTimeThreshold = startTimestamp + cooldownWindow;
     }
 
+    /// BASE URI ///
     /**
      * @dev Returns the base URI for token metadata.
      */
@@ -148,15 +136,7 @@ contract ZkImagine is
         _baseTokenURI = baseURI;
     }
 
-    /**
-     * @dev Returns the full URI for the token metadata for a specified token ID.
-     */
-    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
-
-        string memory baseURI = _baseURI();
-        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString(), ".json")) : "";
-    }
+    /// WHITELIST OPERATIONS ///
 
     /**
      * @dev Adds a partner NFT contract address to the whitelist.
@@ -180,27 +160,7 @@ contract ZkImagine is
         emit WhitelistedNFTRemoved(nftAddress);
     }
 
-    /**
-     * @dev Allows the holder of a partner NFT to mint this NFT for free once per day.
-     */
-    function partnerFreeMint(
-        address to,
-        address partnerNFTAddress,
-        string memory modelId,
-        string memory imageId
-    ) external {
-        MintStatus memory status = canMintForPartnerNFT(to, partnerNFTAddress);
-        require(status.canMint, status.reason);
-
-        _updateGlobalTimeThreshold();
-        nextMint[to][partnerNFTAddress] = globalTimeThreshold;
-
-        uint256 tokenId = _getNextTokenId();
-        _safeMint(to, tokenId);
-        _incrementTokenId();
-
-        emit PartnerFreeMint(to, partnerNFTAddress, tokenId, modelId, imageId);
-    }
+    /// MINT OPERATIONS ///
 
     /**
      * @dev Mints a new token to the specified address.
@@ -238,6 +198,28 @@ contract ZkImagine is
     }
 
     /**
+     * @dev Allows the holder of a partner NFT to mint this NFT for free once per globalTimeThreshold.
+     */
+    function partnerFreeMint(
+        address to,
+        address partnerNFTAddress,
+        string memory modelId,
+        string memory imageId
+    ) external {
+        MintStatus memory status = canMintForPartnerNFT(to, partnerNFTAddress);
+        require(status.canMint, status.reason);
+
+        _updateGlobalTimeThreshold();
+        nextMint[to][partnerNFTAddress] = globalTimeThreshold;
+
+        uint256 tokenId = _getNextTokenId();
+        _safeMint(to, tokenId);
+        _incrementTokenId();
+
+        emit PartnerFreeMint(to, partnerNFTAddress, tokenId, modelId, imageId);
+    }
+
+    /**
      * @dev Allows the owner to mint a token for free using a signature.
      */
     function signatureFreeMint(
@@ -246,7 +228,6 @@ contract ZkImagine is
         string memory modelId,
         string memory imageId
     ) external {
-        // require(canMintForSignature(hash, signature), "Already minted today");
         MintStatus memory status = canMintForSignature(hash, signature);
         require(status.canMint, status.reason);
 
@@ -254,13 +235,21 @@ contract ZkImagine is
 
         nextSignatureMint[signature] = globalTimeThreshold;
 
-        // uint256 tokenId = totalSupply() + 1;
         uint256 tokenId = _getNextTokenId();
         _safeMint(msg.sender, tokenId);
         _incrementTokenId();
 
         emit SignatureFreeMint(msg.sender, tokenId, modelId, imageId);
     }
+
+    /**
+     * @dev Checks if an NFT contract address is whitelisted.
+     */
+    function isWhitelistedNFT(address nftAddress) public view returns (bool) {
+        return whitelistedNFTs[nftAddress];
+    }
+
+    /// CLAIM OPERATIONS ///
 
     /**
      * @dev Allows the referrer to claim the referral fee.
@@ -278,13 +267,6 @@ contract ZkImagine is
     }
 
     /**
-     * @dev Checks if an NFT contract address is whitelisted.
-     */
-    function isWhitelistedNFT(address nftAddress) public view returns (bool) {
-        return whitelistedNFTs[nftAddress];
-    }
-
-    /**
      * @dev Allows the contract owner to claim the collected mint fees.
      * Ensures referral fees are preserved for later claims.
      */
@@ -296,6 +278,7 @@ contract ZkImagine is
         emit FeeClaimed(owner(), availableBalance);
     }
 
+    /// HELPER FUNCTIONS ///
     function _recoverSigner(bytes32 hash, bytes memory signature) internal pure returns (address) {
         bytes32 messageDigest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
         return ECDSA.recover(messageDigest, signature);
@@ -356,10 +339,26 @@ contract ZkImagine is
         }
     }
 
+    function _incrementTokenId() private {
+        _tokenIdCounter++;
+    }
+
+    /**
+     * @dev Returns the full URI for the token metadata for a specified token ID.
+     */
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
+
+        string memory baseURI = _baseURI();
+        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString(), ".json")) : "";
+    }
+
     /**
      * @dev Allows the contract to receive Ether.
      */
     receive() external payable {}
+
+    /// SETTER FUNCTIONS ///
 
     // Additional functions or overrides can be added here if needed.
     function setMintFee(uint256 fee) external onlyOwner {
@@ -380,6 +379,7 @@ contract ZkImagine is
         emit FreeMintCooldownWindowChanged(cooldownWindow);
     }
 
+    /// GETTER FUNCTIONS ///
     function getDiscountedMintFee() public view returns (uint256, uint256) {
         uint256 discount = (mintFee * referralDiscountPct) / 100; // 10% discount -> 0.0006 * 10 / 100 = 0.00006
         return (mintFee - discount, discount);
@@ -387,10 +387,6 @@ contract ZkImagine is
 
     function _getNextTokenId() private view returns (uint256) {
         return _tokenIdCounter + 1;
-    }
-
-    function _incrementTokenId() private {
-        _tokenIdCounter++;
     }
 
     // Ensure that only the owner can upgrade the contract
