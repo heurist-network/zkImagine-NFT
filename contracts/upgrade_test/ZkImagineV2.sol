@@ -33,7 +33,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 /**
  * @title ZkImagine
  */
-contract ZkImagine is
+contract ZkImagineV2 is
     Initializable,
     ERC721EnumerableUpgradeable,
     UUPSUpgradeable,
@@ -391,6 +391,10 @@ contract ZkImagine is
 
     function _incrementTokenId() private {
         _tokenIdCounter++;
+    }
+
+    function testUpgrade() external pure returns (string memory) {
+        return "Upgraded";
     }
 
     // Ensure that only the owner can upgrade the contract
