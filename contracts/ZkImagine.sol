@@ -192,8 +192,9 @@ contract ZkImagine is
         }
 
         uint256 tokenId = _getNextTokenId();
-        _safeMint(to, tokenId);
         _incrementTokenId();
+        _safeMint(to, tokenId);
+
         emit Minted(to, referral, tokenId, modelId, imageId);
     }
 
@@ -213,8 +214,8 @@ contract ZkImagine is
         nextMint[to][partnerNFTAddress] = globalTimeThreshold;
 
         uint256 tokenId = _getNextTokenId();
-        _safeMint(to, tokenId);
         _incrementTokenId();
+        _safeMint(to, tokenId);
 
         emit PartnerFreeMint(to, partnerNFTAddress, tokenId, modelId, imageId);
     }
@@ -236,8 +237,8 @@ contract ZkImagine is
         nextSignatureMint[signature] = globalTimeThreshold;
 
         uint256 tokenId = _getNextTokenId();
-        _safeMint(msg.sender, tokenId);
         _incrementTokenId();
+        _safeMint(msg.sender, tokenId);
 
         emit SignatureFreeMint(msg.sender, tokenId, modelId, imageId);
     }

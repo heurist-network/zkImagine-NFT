@@ -9,7 +9,7 @@ ZkImagine is an upgradeable ERC721-based non-fungible token (NFT) smart contract
 ## Features
 - **Standard Minting**: Users can mint new NFTs by paying a mint fee.
 - **Referral System**: Referrers can earn a percentage of the mint fee as a reward, and minters get a discount when using a referral.
-- **Partner Whitelist**: Allows holders of whitelisted partner NFTs to mint NFTs for free once per global time threshold.
+- **Partner Whitelist**: Allows holders of whitelisted partner NFTs to mint NFTs for free once per global time threshold for each partner NFT collection hold.
 - **Signature-Based Free Minting**: Allows free minting based on owner-signed messages.
 - **Secure Fee Handling**: Referral fees are tracked and preserved, ensuring users can claim their earned fees.
 - **Owner Functions**: The contract owner can manage the base URI, add/remove whitelisted NFTs, claim accumulated fees, and adjust various parameters.
