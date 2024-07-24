@@ -17,7 +17,7 @@ async function main() {
     const contractABI = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
 
     // Deployed contract address and ABI
-    const contractAddress = "0xcFfaDf300a0452197De3137F62dd8b05474E0cb5";
+    const contractAddress = "0xBC25a6EF4884A9FF0A8D7F637eb3441d62002F0b";
 
     // Connect to the contract
     const zkImagine = new ethers.Contract(contractAddress, contractABI, ethers.provider);
@@ -31,7 +31,7 @@ async function main() {
     console.log("deployer", deployerWallet.address);
     // Create 10 wallets
     const wallets = [];
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 100; i++) {
         let wallet = ethers.Wallet.createRandom().connect(ethers.provider);
         console.log(`Created wallet ${i + 1}:`, wallet.address);
         wallets.push(wallet);

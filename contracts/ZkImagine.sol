@@ -57,8 +57,8 @@ contract ZkImagine is
     // mapping for whitelisted NFT contract addresses
     mapping(address => bool) public whitelistedNFTs;
 
-    // next minted timestamp for each holder of partner NFT
-    mapping(address => mapping(address => uint256)) public nextMint;
+    // next minted timestamp for each token id of partner NFT
+    mapping(address => mapping(uint256 => uint256)) public nextMint;
 
     // next minted timestamp for each signature
     mapping(bytes => uint256) public nextSignatureMint;
@@ -83,7 +83,7 @@ contract ZkImagine is
     event WhitelistedNFTRemoved(address nftAddress);
     event FeeClaimed(address owner, uint256 amount);
     event Minted(address to, address referral, uint256 tokenId, string modelId, string imageId);
-    event PartnerFreeMint(address to, address partnerNFTAddress, uint256 tokenId, string modelId, string imageId);
+    event PartnerFreeMint(address to, address partnerNFTAddress, uint256 partnerNFTtokenId, uint256 tokenId, string modelId, string imageId);
     event ReferralFeeClaimed(address referer, uint256 amount);
     event SignatureFreeMint(address to, uint256 tokenId, string modelId, string imageId);
     event MintFeeChanged(uint256 fee);
@@ -204,20 +204,21 @@ contract ZkImagine is
     function partnerFreeMint(
         address to,
         address partnerNFTAddress,
+        uint256 partnerNFTtokenId,
         string memory modelId,
         string memory imageId
     ) external {
-        MintStatus memory status = canMintForPartnerNFT(to, partnerNFTAddress);
+        MintStatus memory status = canMintForPartnerNFT(to, partnerNFTAddress,partnerNFTtokenId);
         require(status.canMint, status.reason);
 
         _updateGlobalTimeThreshold();
-        nextMint[to][partnerNFTAddress] = globalTimeThreshold;
+        nextMint[partnerNFTAddress][partnerNFTtokenId] = globalTimeThreshold;
 
         uint256 tokenId = _getNextTokenId();
         _incrementTokenId();
         _safeMint(to, tokenId);
 
-        emit PartnerFreeMint(to, partnerNFTAddress, tokenId, modelId, imageId);
+        emit PartnerFreeMint(to, partnerNFTAddress, partnerNFTtokenId, tokenId, modelId, imageId);
     }
 
     /**
@@ -286,18 +287,18 @@ contract ZkImagine is
     }
 
     // check if address can mint for partner NFT
-    function canMintForPartnerNFT(address to, address partnerNFTAddress) public view returns (MintStatus memory) {
+    function canMintForPartnerNFT(address to, address partnerNFTAddress, uint256 tokenId) public view returns (MintStatus memory) {
         if (!isWhitelistedNFT(partnerNFTAddress)) {
             return MintStatus(false, "NFT contract not whitelisted");
         }
 
         IERC721 partnerNFT = IERC721(partnerNFTAddress);
-        if (partnerNFT.balanceOf(to) == 0) {
-            return MintStatus(false, "Recipient does not own the NFT");
+        if (partnerNFT.ownerOf(tokenId) != to) {
+            return MintStatus(false, "Recipient does not own the token id of NFT");
         }
 
-        if (!checkValidTime(nextMint[to][partnerNFTAddress])) {
-            return MintStatus(false, "Next mint time not reached");
+        if (!checkValidTime(nextMint[partnerNFTAddress][tokenId])) {
+            return MintStatus(false, "Next mint time not reached for the token id");
         }
 
         return MintStatus(true, "");

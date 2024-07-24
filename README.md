@@ -43,7 +43,7 @@ ZkImagine is an upgradeable ERC721-based non-fungible token (NFT) smart contract
 - `uint256 public freeMintCooldownWindow`: Cooldown window for free mints.
 - `uint256 public globalTimeThreshold`: Global time threshold for free mints.
 - `mapping(address => bool) public whitelistedNFTs`: Tracks whitelisted NFT contract addresses.
-- `mapping(address => mapping(address => uint256)) public nextMint`: Tracks the next allowed mint timestamp for each holder of partner NFTs.
+- `mapping(address => mapping(uint256 => uint256)) public nextMint`: Tracks the next allowed mint timestamp for each token id of partner NFTs.
 - `mapping(bytes => uint256) public nextSignatureMint`: Tracks the next allowed mint timestamp for each signature.
 - `mapping(address => uint256) public referralFeesEarned`: Tracks the fees earned by referrals.
 - `uint256 public totalReferralFees`: Total referral fees accumulated in the contract.
@@ -53,7 +53,7 @@ ZkImagine is an upgradeable ERC721-based non-fungible token (NFT) smart contract
 - `WhitelistedNFTRemoved(address nftAddress)`
 - `FeeClaimed(address owner, uint256 amount)`
 - `Minted(address to, address referral, uint256 tokenId, string modelId, string imageId)`
-- `PartnerFreeMint(address to, address partnerNFTAddress, uint256 tokenId, string modelId, string imageId)`
+- `PartnerFreeMint(address to, address partnerNFTAddress, uint256 partnerNFTtokenId, uint256 tokenId, string modelId, string imageId);`
 - `ReferralFeeClaimed(address referer, uint256 amount)`
 - `SignatureFreeMint(address to, uint256 tokenId, string modelId, string imageId)`
 - `MintFeeChanged(uint256 fee)`
@@ -78,7 +78,7 @@ ZkImagine is an upgradeable ERC721-based non-fungible token (NFT) smart contract
 - `tokenURI(uint256 tokenId) public view virtual override returns (string memory)`
 - `isWhitelistedNFT(address nftAddress) public view returns (bool)`
 - `getDiscountedMintFee() public view returns (uint256, uint256)`
-- `canMintForPartnerNFT(address to, address partnerNFTAddress) public view returns (MintStatus memory)`
+- `canMintForPartnerNFT(address to, address partnerNFTAddress,uint256 partnerNFTtokenId) public view returns (MintStatus memory)`
 - `canMintForSignature(bytes32 hash, bytes memory signature) public view returns (MintStatus memory)`
 
 ## Upgrades
@@ -109,7 +109,7 @@ This README provides an overview of the main features and functions of the ZkIma
 `npx hardhat deploy-zksync --script deployZkImagineUUPS.ts --network zkSyncSepoliaTestnet`
 
 - verify contract 
-` npx hardhat verify <contract>`
+` npx hardhat verify <contract_address>`
 
 - example for upgrade contract
 `npx hardhat deploy-zksync --script upgradeUUPSZkImagine.ts --network zkSyncSepoliaTestnet`
