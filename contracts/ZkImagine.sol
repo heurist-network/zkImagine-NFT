@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+import { SignatureChecker } from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
@@ -72,6 +72,9 @@ contract ZkImagine is
     // global time threshold for free mint
     uint256 public globalTimeThreshold;
 
+    // gap for upgradeability
+    uint256[128] __gap;
+
     /// STRUCT ///
     struct MintStatus {
         bool canMint;
@@ -83,12 +86,22 @@ contract ZkImagine is
     event WhitelistedNFTRemoved(address nftAddress);
     event FeeClaimed(address owner, uint256 amount);
     event Minted(address to, address referral, uint256 tokenId, string modelId, string imageId);
-    event PartnerFreeMint(address to, address partnerNFTAddress, uint256 partnerNFTtokenId, uint256 tokenId, string modelId, string imageId);
+    event PartnerFreeMint(
+        address to,
+        address partnerNFTAddress,
+        uint256 partnerNFTtokenId,
+        uint256 tokenId,
+        string modelId,
+        string imageId
+    );
     event ReferralFeeClaimed(address referer, uint256 amount);
     event SignatureFreeMint(address to, uint256 tokenId, string modelId, string imageId);
     event MintFeeChanged(uint256 fee);
     event ReferralDiscountChanged(uint256 discount);
     event FreeMintCooldownWindowChanged(uint256 cooldownWindow);
+    event BaseURIChanged(string baseURI);
+
+    using SignatureChecker for address;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -113,6 +126,8 @@ contract ZkImagine is
         __ReentrancyGuard_init();
         __UUPSUpgradeable_init();
 
+        _beforeIntialize(baseTokenURI, mint_fee, referralDiscount, cooldownWindow, startTimestamp);
+
         _baseTokenURI = baseTokenURI;
         mintFee = mint_fee;
         referralDiscountPct = referralDiscount;
@@ -134,6 +149,7 @@ contract ZkImagine is
      */
     function setBaseURI(string calldata baseURI) external onlyOwner {
         _baseTokenURI = baseURI;
+        emit BaseURIChanged(baseURI);
     }
 
     /// WHITELIST OPERATIONS ///
@@ -208,7 +224,7 @@ contract ZkImagine is
         string memory modelId,
         string memory imageId
     ) external {
-        MintStatus memory status = canMintForPartnerNFT(to, partnerNFTAddress,partnerNFTtokenId);
+        MintStatus memory status = canMintForPartnerNFT(to, partnerNFTAddress, partnerNFTtokenId);
         require(status.canMint, status.reason);
 
         _updateGlobalTimeThreshold();
@@ -281,13 +297,17 @@ contract ZkImagine is
     }
 
     /// HELPER FUNCTIONS ///
-    function _recoverSigner(bytes32 hash, bytes memory signature) internal pure returns (address) {
+    function _recoverSigner(bytes32 hash, bytes memory signature, address signer) internal view returns (bool) {
         bytes32 messageDigest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
-        return ECDSA.recover(messageDigest, signature);
+        return signer.isValidSignatureNow(messageDigest, signature);
     }
 
     // check if address can mint for partner NFT
-    function canMintForPartnerNFT(address to, address partnerNFTAddress, uint256 tokenId) public view returns (MintStatus memory) {
+    function canMintForPartnerNFT(
+        address to,
+        address partnerNFTAddress,
+        uint256 tokenId
+    ) public view returns (MintStatus memory) {
         if (!isWhitelistedNFT(partnerNFTAddress)) {
             return MintStatus(false, "NFT contract not whitelisted");
         }
@@ -310,7 +330,7 @@ contract ZkImagine is
             return MintStatus(false, "Invalid hash");
         }
 
-        if (_recoverSigner(hash, signature) != owner()) {
+        if (!_recoverSigner(hash, signature, owner())) {
             return MintStatus(false, "Invalid signature");
         }
 
@@ -331,13 +351,31 @@ contract ZkImagine is
         return false;
     }
 
+    function _beforeIntialize(
+        string memory baseTokenURI,
+        uint256 mint_fee,
+        uint256 referralDiscount,
+        uint256 cooldownWindow,
+        uint256 startTimestamp
+    ) internal {
+        require(bytes(baseTokenURI).length > 0, "Base URI is empty");
+        require(mint_fee > 0, "Mint fee must be greater than 0");
+        require(referralDiscount >= 0 && referralDiscount <= 100, "Referral discount must be between 0 and 100");
+        require(cooldownWindow > 0, "Cooldown window must be greater than 0");
+        require(startTimestamp > 0, "Start timestamp must be greater than 0");
+    }
+
     function _updateGlobalTimeThreshold() internal {
         // triggered by user free mint
         if (block.timestamp > globalTimeThreshold) {
-            // update the globalTimeThreshold with multiple of freeMintCooldownWindow until it is greater than block.timestamp
-            while (block.timestamp > globalTimeThreshold) {
-                globalTimeThreshold += freeMintCooldownWindow;
-            }
+            // Calculate the number of periods that have passed
+            uint256 periodsPassed = (block.timestamp - globalTimeThreshold) / freeMintCooldownWindow;
+
+            // Add one more period to ensure it's greater than the current timestamp
+            periodsPassed++;
+
+            // Update the globalTimeThreshold in one step
+            globalTimeThreshold += periodsPassed * freeMintCooldownWindow;
         }
     }
 
@@ -389,6 +427,11 @@ contract ZkImagine is
 
     function _getNextTokenId() private view returns (uint256) {
         return _tokenIdCounter + 1;
+    }
+
+    /// ONWER FUNCTIONS ///
+    function renounceOwnership() public view override onlyOwner {
+        revert("renounceOwnership is disabled");
     }
 
     // Ensure that only the owner can upgrade the contract
