@@ -8,7 +8,7 @@ const config: HardhatUserConfig = {
   defaultNetwork: "zkSyncSepoliaTestnet",
   networks: {
     zkSyncSepoliaTestnet: {
-      url: "https://zksync-sepolia.g.alchemy.com/v2/gLxnUXLgC6XU-_bdnp3cllUwgwrAO5IT",
+      url: "https://sepolia.era.zksync.dev",
       ethNetwork: "sepolia",
       zksync: true,
       verifyURL: "https://explorer.sepolia.era.zksync.dev/contract_verification",

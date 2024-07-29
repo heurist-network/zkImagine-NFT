@@ -6,6 +6,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 export default async function (hre: HardhatRuntimeEnvironment) {
     const wallet = getWallet();
     const deployer = new Deployer(hre, wallet);
+    const deployerAddress = await wallet.getAddress();
 
     const contractArtifact = await deployer.loadArtifact("ZkImagine");
     const name = "ZKImagine";
@@ -23,7 +24,7 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     const ZkImagine = await hre.zkUpgrades.deployProxy(
         getWallet(),
         contractArtifact,
-        [name, symbol, baseTokenURI, mintFee.toString(), referralDiscount.toString(), cooldownWindow.toString(), timestamp.toString()],
+        [name, symbol, baseTokenURI, mintFee.toString(), referralDiscount.toString(), cooldownWindow.toString(), timestamp.toString(),deployerAddress],
         { initializer: 'initialize' }
     );
 

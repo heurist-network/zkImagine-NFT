@@ -17,7 +17,7 @@ async function main() {
     const contractABI = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
 
     // Deployed contract address and ABI
-    const contractAddress = "0xba2Ea34cA3bCEa8277f4F62f04294b3AEA4C4ab3";
+    const contractAddress = "0x0291715974a808f81DeEa4B35fe1522D70935E38";
 
     // Connect to the contract
     const zkImagine = new ethers.Contract(contractAddress, contractABI, ethers.provider);
@@ -31,7 +31,7 @@ async function main() {
     console.log("deployer", deployerWallet.address);
     // Create 10 wallets
     const wallets = [];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 100; i++) {
         let wallet = ethers.Wallet.createRandom().connect(ethers.provider);
         console.log(`Created wallet ${i + 1}:`, wallet.address);
         wallets.push(wallet);
@@ -39,13 +39,13 @@ async function main() {
 
         const tx = await deployerWallet.sendTransaction({
             to: wallet.address,
-            value: ethers.parseEther("0.001"),
+            value: ethers.parseEther("0.05"),
             nonce: nonce 
         });
 
         await tx.wait();
         // Add a delay after each transfer
-        await sleep(10000); // sleep for 1000ms (1 second)
+        await sleep(5000); // sleep for 1000ms (1 second)
 
         // Increment the nonce for the next transaction
         nonce++;
@@ -56,11 +56,18 @@ async function main() {
     for (let i = 0; i < wallets.length; i++) {
         const wallet = wallets[i];
         const zkImagineWithWallet = zkImagine.connect(wallet);
+         
+        // generate random number between 0 and 1
+        const randomNumber = Math.floor(Math.random() * 2);
+        console.log(`randomNumber: ${randomNumber}`);
+        // secondary address is randomly pick from zero address or minter address
+        const secondaryAddress = randomNumber === 0 ? ethers.ZeroAddress : wallet.address;
+
 
         // Call the setValue function
         const tx = await zkImagineWithWallet.mint(
             wallet.address,
-            ethers.ZeroAddress,
+            secondaryAddress,
             `model-id-${i + 1}`,
             `image-id-${i + 1}`,
             { value: ethers.parseEther("0.0001") });
