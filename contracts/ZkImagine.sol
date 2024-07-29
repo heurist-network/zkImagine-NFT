@@ -229,7 +229,7 @@ contract ZkImagine is
         uint256 partnerNFTtokenId,
         string memory modelId,
         string memory imageId
-    ) external {
+    ) external nonReentrant {
         MintStatus memory status = canMintForPartnerNFT(to, partnerNFTAddress, partnerNFTtokenId);
         require(status.canMint, status.reason);
 
@@ -252,7 +252,7 @@ contract ZkImagine is
         bytes memory signature,
         string memory modelId,
         string memory imageId
-    ) external {
+    ) external nonReentrant {
         MintStatus memory status = canMintForSignature(hash, signature,to);
         require(status.canMint, status.reason);
 
@@ -279,7 +279,7 @@ contract ZkImagine is
     /**
      * @dev Allows the referrer to claim the referral fee.
      */
-    function claimReferralFee() external {
+    function claimReferralFee() external nonReentrant {
         uint256 fee = referralFeesEarned[msg.sender];
         require(fee > 0, "No referral fee earned");
 
