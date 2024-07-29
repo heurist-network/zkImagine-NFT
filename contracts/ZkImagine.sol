@@ -72,6 +72,9 @@ contract ZkImagine is
     // global time threshold for free mint
     uint256 public globalTimeThreshold;
 
+    // signature signer address
+    address public signer;
+
     // gap for upgradeability
     uint256[128] __gap;
 
@@ -100,6 +103,7 @@ contract ZkImagine is
     event ReferralDiscountChanged(uint256 discount);
     event FreeMintCooldownWindowChanged(uint256 cooldownWindow);
     event BaseURIChanged(string baseURI);
+    event SignerChanged(address signer);
 
     using SignatureChecker for address;
 
@@ -119,7 +123,8 @@ contract ZkImagine is
         uint256 mint_fee,
         uint256 referralDiscount,
         uint256 cooldownWindow,
-        uint256 startTimestamp
+        uint256 startTimestamp,
+        address _signer
     ) public initializer {
         __ERC721_init(name, symbol);
         __Ownable_init();
@@ -133,6 +138,7 @@ contract ZkImagine is
         referralDiscountPct = referralDiscount;
         freeMintCooldownWindow = cooldownWindow;
         globalTimeThreshold = startTimestamp + cooldownWindow;
+        signer = _signer;
     }
 
     /// BASE URI ///
@@ -241,12 +247,13 @@ contract ZkImagine is
      * @dev Allows the owner to mint a token for free using a signature.
      */
     function signatureFreeMint(
+        address to,
         bytes32 hash,
         bytes memory signature,
         string memory modelId,
         string memory imageId
     ) external {
-        MintStatus memory status = canMintForSignature(hash, signature);
+        MintStatus memory status = canMintForSignature(hash, signature,to);
         require(status.canMint, status.reason);
 
         _updateGlobalTimeThreshold();
@@ -255,9 +262,9 @@ contract ZkImagine is
 
         uint256 tokenId = _getNextTokenId();
         _incrementTokenId();
-        _safeMint(msg.sender, tokenId);
+        _safeMint(to, tokenId);
 
-        emit SignatureFreeMint(msg.sender, tokenId, modelId, imageId);
+        emit SignatureFreeMint(to, tokenId, modelId, imageId);
     }
 
     /**
@@ -297,9 +304,9 @@ contract ZkImagine is
     }
 
     /// HELPER FUNCTIONS ///
-    function _recoverSigner(bytes32 hash, bytes memory signature, address signer) internal view returns (bool) {
-        bytes32 messageDigest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
-        return signer.isValidSignatureNow(messageDigest, signature);
+    function _recoverSigner(bytes32 _hash, bytes memory _signature, address _signer) internal view returns (bool) {
+        bytes32 messageDigest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _hash));
+        return _signer.isValidSignatureNow(messageDigest, _signature);
     }
 
     // check if address can mint for partner NFT
@@ -325,12 +332,12 @@ contract ZkImagine is
     }
 
     // check if address can mint for signature
-    function canMintForSignature(bytes32 hash, bytes memory signature) public view returns (MintStatus memory) {
-        if (hash != keccak256(abi.encodePacked(msg.sender))) {
+    function canMintForSignature(bytes32 hash, bytes memory signature, address minter) public view returns (MintStatus memory) {
+        if (hash != keccak256(abi.encodePacked(minter))) {
             return MintStatus(false, "Invalid hash");
         }
 
-        if (!_recoverSigner(hash, signature, owner())) {
+        if (!_recoverSigner(hash, signature, signer)) {
             return MintStatus(false, "Invalid signature");
         }
 
@@ -357,7 +364,7 @@ contract ZkImagine is
         uint256 referralDiscount,
         uint256 cooldownWindow,
         uint256 startTimestamp
-    ) internal {
+    ) internal pure {
         require(bytes(baseTokenURI).length > 0, "Base URI is empty");
         require(mint_fee > 0, "Mint fee must be greater than 0");
         require(referralDiscount >= 0 && referralDiscount <= 100, "Referral discount must be between 0 and 100");
@@ -417,6 +424,12 @@ contract ZkImagine is
         require(cooldownWindow > 0, "Cooldown window must be greater than 0");
         freeMintCooldownWindow = cooldownWindow;
         emit FreeMintCooldownWindowChanged(cooldownWindow);
+    }
+
+    function setSigner(address _signer) external onlyOwner {
+        require(_signer != address(0), "Zero address not allowed");
+        signer = _signer;
+        emit SignerChanged(_signer);
     }
 
     /// GETTER FUNCTIONS ///

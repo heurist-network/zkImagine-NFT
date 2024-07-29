@@ -10,7 +10,7 @@ ZkImagine is an upgradeable ERC721-based non-fungible token (NFT) smart contract
 - **Standard Minting**: Users can mint new NFTs by paying a mint fee.
 - **Referral System**: Referrers can earn a percentage of the mint fee as a reward, and minters get a discount when using a referral.
 - **Partner Whitelist**: Allows holders of whitelisted partner NFTs to mint NFTs for free once per global time threshold for each partner NFT collection hold.
-- **Signature-Based Free Minting**: Allows free minting based on owner-signed messages.
+- **Signature-Based Free Minting**: Allows free minting based on signer-signed messages.
 - **Secure Fee Handling**: Referral fees are tracked and preserved, ensuring users can claim their earned fees.
 - **Owner Functions**: The contract owner can manage the base URI, add/remove whitelisted NFTs, claim accumulated fees, and adjust various parameters.
 - **Upgradeable**: The contract is designed to be upgradeable using the UUPS pattern.
@@ -20,7 +20,7 @@ ZkImagine is an upgradeable ERC721-based non-fungible token (NFT) smart contract
 ### Key Functions
 
 #### Initialization
-- `initialize(string memory name, string memory symbol, string memory baseTokenURI, uint256 mint_fee, uint256 referralDiscount, uint256 cooldownWindow, uint256 startTimestamp) public initializer`
+- `initialize(string memory name, string memory symbol, string memory baseTokenURI, uint256 mint_fee, uint256 referralDiscount, uint256 cooldownWindow, uint256 startTimestamp, address signer) public initializer`
   - Initializes the contract with the given parameters.
 
 #### Minting
@@ -32,8 +32,8 @@ ZkImagine is an upgradeable ERC721-based non-fungible token (NFT) smart contract
    - Allows free minting for holders of whitelisted partner NFTs.
    - Limited by the global time threshold.
 
-3. `signatureFreeMint(bytes32 hash, bytes memory signature, string memory modelId, string memory imageId) external`
-   - Allows free minting based on owner-signed messages.
+3. `signatureFreeMint(address to, bytes32 hash, bytes memory signature, string memory modelId, string memory imageId) external`
+   - Allows free minting based on signer-signed messages.
    - Limited by the global time threshold.
 
 ### State Variables
@@ -59,6 +59,8 @@ ZkImagine is an upgradeable ERC721-based non-fungible token (NFT) smart contract
 - `MintFeeChanged(uint256 fee)`
 - `ReferralDiscountChanged(uint256 discount)`
 - `FreeMintCooldownWindowChanged(uint256 cooldownWindow)`
+- `BaseURIChanged(string baseURI)`
+- `SignerChanged(address signer)`
 
 ### Whitelist Management
 - `addWhitelistedNFT(address nftAddress) external onlyOwner`
@@ -72,6 +74,7 @@ ZkImagine is an upgradeable ERC721-based non-fungible token (NFT) smart contract
 - `setMintFee(uint256 fee) external onlyOwner`
 - `setReferralDiscountPct(uint256 discount) external onlyOwner`
 - `setFreeMintCooldownWindow(uint256 cooldownWindow) external onlyOwner`
+- `function setSigner(address _signer) external onlyOwner`
 
 ### Utility Functions
 - `setBaseURI(string calldata baseURI) external onlyOwner`
