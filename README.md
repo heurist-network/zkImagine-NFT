@@ -1,7 +1,7 @@
-# ZkImagine NFT Smart Contract
+# zkImagine NFT Smart Contract
 
 ## Overview
-ZkImagine is an upgradeable ERC721-based non-fungible token (NFT) smart contract. This contract includes features such as referral-based minting discounts, partner NFT whitelisting for free mints, signature-based free minting, and secure fee handling.
+zkImagine is an upgradeable ERC721-based non-fungible token (NFT) smart contract. This contract includes features such as referral-based minting discounts, partner NFT whitelisting for free mints, signature-based free minting, and secure fee handling.
 
 ## Contract Address
 [To be filled after deployment]
@@ -109,12 +109,20 @@ This README provides an overview of the main features and functions of the ZkIma
 - **Deployment Script**:
 
 - deploy uups upgradeable contract
-`npx hardhat deploy-zksync --script deployZkImagineUUPS.ts --network zkSyncSepoliaTestnet`
+`npx hardhat deploy-zksync --script deployzkImagineUUPS.ts --network zkSyncSepoliaTestnet`
 
 - verify contract 
 ` npx hardhat verify <contract_address>`
 
 - example for upgrade contract
-`npx hardhat deploy-zksync --script upgradeUUPSZkImagine.ts --network zkSyncSepoliaTestnet`
+`npx hardhat deploy-zksync --script upgradeUUPSzkImagine.ts --network zkSyncSepoliaTestnet`
+
+### deploy on mainnet 
+`npx hardhat deploy-zksync --script deployzkImagineUUPS.ts --network zkSyncMainnet`
+
+contract address: `0x5c63369e3F04018A0C32559661E025F051fB071E`
+
+https://explorer.zksync.io/address/0x5c63369e3F04018A0C32559661E025F051fB071E#contract
+
 ## License
 This project is licensed under the MIT License.

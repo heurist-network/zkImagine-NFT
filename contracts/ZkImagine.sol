@@ -29,9 +29,9 @@ import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 */
 
 /**
- * @title ZkImagine
+ * @title zkImagine
  */
-contract ZkImagine is
+contract zkImagine is
     Initializable,
     ERC721EnumerableUpgradeable,
     UUPSUpgradeable,
