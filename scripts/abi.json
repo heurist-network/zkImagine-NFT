@@ -218,12 +218,6 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "partnerNFTtokenId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
         "name": "tokenId",
         "type": "uint256"
       },
@@ -431,11 +425,6 @@
         "internalType": "address",
         "name": "partnerNFTAddress",
         "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
       }
     ],
     "name": "canMintForPartnerNFT",
@@ -722,9 +711,9 @@
         "type": "address"
       },
       {
-        "internalType": "uint256",
+        "internalType": "address",
         "name": "",
-        "type": "uint256"
+        "type": "address"
       }
     ],
     "name": "nextMint",
@@ -800,11 +789,6 @@
         "internalType": "address",
         "name": "partnerNFTAddress",
         "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "partnerNFTtokenId",
-        "type": "uint256"
       },
       {
         "internalType": "string",

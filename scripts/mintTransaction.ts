@@ -17,7 +17,7 @@ async function main() {
     const contractABI = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
 
     // Deployed contract address and ABI
-    const contractAddress = "0x0291715974a808f81DeEa4B35fe1522D70935E38";
+    const contractAddress = "0xBC25a6EF4884A9FF0A8D7F637eb3441d62002F0b";
 
     // Connect to the contract
     const zkImagine = new ethers.Contract(contractAddress, contractABI, ethers.provider);
@@ -31,7 +31,7 @@ async function main() {
     console.log("deployer", deployerWallet.address);
     // Create 10 wallets
     const wallets = [];
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 10; i++) {
         let wallet = ethers.Wallet.createRandom().connect(ethers.provider);
         console.log(`Created wallet ${i + 1}:`, wallet.address);
         wallets.push(wallet);
@@ -42,7 +42,8 @@ async function main() {
             value: ethers.parseEther("0.05"),
             nonce: nonce 
         });
-
+        
+        await sleep(1000); // sleep for 1000ms (1 second)
         await tx.wait();
         // Add a delay after each transfer
         await sleep(5000); // sleep for 1000ms (1 second)
