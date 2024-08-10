@@ -11,8 +11,8 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     const contractArtifact = await deployer.loadArtifact("zkImagine");
     const name = "zkImagine";
     const symbol = "ZKIMAG";
-    const baseTokenURI = "https://cdn.zkimagine.com/";
-    const mintFee = ethers.parseEther("0.0006");
+    const baseTokenURI = "https://test.com/"; // change to your base token URI when in mainnet
+    const mintFee = ethers.parseEther("0.0001");
     console.log("Deploying zkImagine NFT contract with mint fee of", mintFee.toString());
     const referralDiscount = 10;
     // time window for cooldown

@@ -8,7 +8,7 @@ import { getWallet, deployContract, LOCAL_RICH_WALLETS } from '../../deploy/util
 
 // yarn hardhat node-zksync
 // npx hardhat test  ./test/signatureFreeMint/newSignatureFreemint.test.ts --network inMemoryNode
-describe("ZkImagine Contract", function () {
+describe("zkImagine Contract", function () {
   let zkImagine: any;
   let owner: Wallet;
   let user1: Wallet;
@@ -32,7 +32,7 @@ describe("ZkImagine Contract", function () {
     
 
     const deployer = new Deployer(hre, owner);
-    const artifact = await deployer.loadArtifact("ZkImagine");
+    const artifact = await deployer.loadArtifact("zkImagine");
 
     const name = "ZKImagine";
     const symbol = "IMAG";

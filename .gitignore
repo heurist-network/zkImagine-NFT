@@ -12,7 +12,7 @@ artifacts
 cache
 
 # zksync artifacts
-artifacts-zk
+# artifacts-zk
 cache-zk
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
